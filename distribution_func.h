@@ -4,6 +4,7 @@
 #include "velocity_grid.h"
 #include "Particles.h"
 #include <array>
+#include <set>
 #include <armadillo>
 
 using namespace std;
@@ -59,6 +60,9 @@ public:
 	double GetOneCollisionTime() const;
 
 	void SaveMatrix_x_vx(const size_t vy_position, const size_t vz_position, const size_t time_index) const;
+
+	void SaveMatrixes(const set<size_t>& xy_collection, const size_t z_position,
+			const size_t space_position, const size_t time_step_num) const;
 
 	void ChangeDFSliceValues(const cube& df_slice_val, size_t slice_index);
 

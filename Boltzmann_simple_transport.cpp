@@ -176,20 +176,21 @@ int main() {
 	SpaceGrid x(x_size, distance, make_pair(BC_Type::PerfectReflection, BC_Type::PerfectReflection), make_pair(0.0,0.0));
 
 	// Physical problem parameters
-	double T_left_wall = 0.1;   // [eV]
-	double T_right_wall = 0.3;  // [eV]
-	vec init_temperature = vec(x.Get1DGrid()) * (T_right_wall - T_left_wall) / distance + T_left_wall;         // [eV]
-	vec init_density = vec(x_size, fill::ones) * 5e14;                                                         // [cm^-3]
-	vector<double> init_T(make_move_iterator(init_temperature.begin()), make_move_iterator(init_temperature.end()));
-	vector<double> init_n(make_move_iterator(init_density.begin()), make_move_iterator(init_density.end()));
-	double V_max = 2.7 * sqrt(2 * max(T_left_wall, T_right_wall) / H.mass) * datum::c_0 * 100;
+	double T = 0.1;   // [eV]
+	double n = 5e14;  // [cm^-3]
+	//double T_right_wall = 0.1;  // [eV]
+	//vec init_temperature = vec(x.Get1DGrid()) * (T_right_wall - T_left_wall) / distance + T_left_wall;         // [eV]
+	//vec init_density = vec(x_size, fill::ones) * 5e14;                                                         // [cm^-3]
+	//vector<double> init_T(make_move_iterator(init_temperature.begin()), make_move_iterator(init_temperature.end()));
+	//vector<double> init_n(make_move_iterator(init_density.begin()), make_move_iterator(init_density.end()));
+	double V_max = 2.7 * sqrt(2 * T / H.mass) * datum::c_0 * 100;
 
 	// Velocity grid building
 	VelocityGrid v(v_size, V_max);
 
 	// Distribution function building
-	DistributionFunction f_H(DistributionType::Maxwell, H, x, v, init_n, init_T);
-	f_H.GetDistrSlice(0).save("f_h_" + to_string(0) + ".txt", raw_ascii);
+	DistributionFunction f_H(DistributionType::TestDistribution_1, H, v, n, T);
+	f_H.SaveMatrixes(set<size_t>({0, 1}), (v_size - 1) / 2, 0, 0);
 
 	// Time step determination
 	double one_collision_time = f_H.GetOneCollisionTime();
@@ -200,10 +201,7 @@ int main() {
 	mat elastic_matrix = BuildCollisionMatrix(v, H);
 
 	for(size_t t = 0; t < time_steps; ++t){
-		for(size_t i = 0; i < x_size; ++i){
-			f_H.ChangeDFbyTransport(i, time_step);
-			f_H.RungeKutta2_ElasticCollisons(elastic_matrix, time_step, i, true);
-		}
+		f_H.RungeKutta2_ElasticCollisons(elastic_matrix, time_step, 0, true);
 		/*f_H.RungeKutta2_ElasticCollisons(elastic_matrix, time_step, 0, true);
 		dalta_temperature(t) = abs(T0 - f_H.ComputeTemperatureStatic()[0]);
 		dalta_density(t) = abs(n0 - f_H.ComputeDensity()[0]);
@@ -211,9 +209,7 @@ int main() {
 		mean_velocity_y(t) = f_H.ComputeMeanVelocity()[0](1);
 		mean_velocity_z(t) = f_H.ComputeMeanVelocity()[0](2);
 		*/
-		if( !( t % 5 ) && t != 0){
-			f_H.SaveMatrix_x_vx((v_size - 1) / 2, (v_size - 1) / 2, t);
-		}
+		f_H.SaveMatrixes(set<size_t>({0, 1}), (v_size - 1) / 2, 0, t+1);
 	}
 	return 0;
 }

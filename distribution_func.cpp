@@ -214,6 +214,43 @@ void DistributionFunction::SaveMatrix_x_vx(const size_t vy_position, const size_
 	result.save("vx_x" + to_string(time_index) + ".txt", raw_ascii);
 }
 
+void DistributionFunction::SaveMatrixes(const set<size_t>& free_pos, const size_t fixed_pos,
+		const size_t space_position, const size_t time_step_num) const{
+	size_t v_size = velocity_grid.GetSize();
+	mat for_saving(v_size, v_size, fill::zeros);
+	string file_name = "";
+	for(size_t i = 0; i < v_size; ++i){
+		for(size_t j = 0; j < v_size; ++j){
+			if(free_pos.count(0) == 1 and free_pos.count(1) == 1){
+				for_saving(j,i) = distribution_function(space_position)(j,i,fixed_pos);
+				if(i == v_size - 1 and j == v_size - 1)
+					file_name = "DF(x = "
+					+ to_string(space_position) + ", vz = "
+					+ to_string(fixed_pos) + ", grid_num = "
+					+ ", t = "
+					+ to_string(time_step_num) + ").bin";
+			}else if(free_pos.count(1) == 1 and free_pos.count(2) == 1){
+				for_saving(j,i) = distribution_function(space_position)(fixed_pos,j,i);
+				if(i == v_size - 1 and j == v_size - 1)
+					file_name = "DF(x = "
+					+ to_string(space_position) + ", vx = "
+					+ to_string(fixed_pos) + ", grid_num = "
+					+ ", t = "
+					+ to_string(time_step_num) + ").bin";
+			}else if(free_pos.count(0) == 1 and free_pos.count(2) == 1){
+				for_saving(j,i) = distribution_function(space_position)(j,fixed_pos,i);
+				if(i == v_size - 1 and j == v_size - 1)
+					file_name = "DF(x = "
+					+ to_string(space_position) + ", vy = "
+					+ to_string(fixed_pos) + ", grid_num = "
+					+ ", t = "
+					+ to_string(time_step_num) + ").bin";
+			}
+		}
+	}
+	for_saving.save(file_name, raw_binary);
+}
+
 void DistributionFunction::ChangeDFbyTransport(size_t slice_index, double time_step){
 	distribution_function(slice_index) += ComputeFlax(slice_index) * time_step / space_grid.GetGridStep();
 }
