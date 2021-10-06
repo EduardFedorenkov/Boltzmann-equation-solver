@@ -154,6 +154,21 @@ void TestSimpleTransport(){
 			df.GetDistrSlice(2).slice(5).rows(0, 9));
 }
 
+void RecordPhysParams_LocalCollTest(double temperature, double dencity, double Vmax,
+		double time_step, double init_distr_max_val){
+	vec params(5, fill::zeros);
+	params(0) = temperature;
+	params(1) = dencity;
+	params(2) = Vmax;
+	params(3) = time_step;
+	params(4) = init_distr_max_val;
+	params.save("params.bin", raw_binary);
+}
+
+void LinearDataSaving(mat& data){
+	data.save("linear_data.bin", raw_binary);
+}
+
 int main() {
 	// Testing procedure
 	TestRunner tr;
@@ -170,10 +185,10 @@ int main() {
 	Particle H(ParticlesType::H, CollisionModel::hard_spheres);
 
 	// Space and velocity grids parameters
-	size_t x_size = 15;
-	double distance = 100.0;
+	//size_t x_size = 15;
+	//double distance = 100.0;
 	size_t v_size = 11;
-	SpaceGrid x(x_size, distance, make_pair(BC_Type::PerfectReflection, BC_Type::PerfectReflection), make_pair(0.0,0.0));
+	//SpaceGrid x(x_size, distance, make_pair(BC_Type::PerfectReflection, BC_Type::PerfectReflection), make_pair(0.0,0.0));
 
 	// Physical problem parameters
 	double T = 0.1;   // [eV]
@@ -195,7 +210,9 @@ int main() {
 	// Time step determination
 	double one_collision_time = f_H.GetOneCollisionTime();
 	double time_step = 0.05 * one_collision_time;
-	size_t time_steps = 101u;
+	size_t time_steps = 91;
+
+	RecordPhysParams_LocalCollTest(T, n, V_max, time_step, max(vectorise(f_H.GetDistrSlice(0))) );
 
 	// Collisions Matrix building
 	mat elastic_matrix = BuildCollisionMatrix(v, H);
@@ -209,7 +226,9 @@ int main() {
 		mean_velocity_y(t) = f_H.ComputeMeanVelocity()[0](1);
 		mean_velocity_z(t) = f_H.ComputeMeanVelocity()[0](2);
 		*/
-		f_H.SaveMatrixes(set<size_t>({0, 1}), (v_size - 1) / 2, 0, t+1);
+		if( !(t % 10) and t != 0){
+			f_H.SaveMatrixes(set<size_t>({0, 1}), (v_size - 1) / 2, 0, t+1);
+		}
 	}
 	return 0;
 }
