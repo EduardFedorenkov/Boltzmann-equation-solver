@@ -4,8 +4,8 @@
 #include "velocity_grid.h"
 #include "Particles.h"
 #include <array>
-#include <set>
 #include <armadillo>
+#include <set>
 
 using namespace std;
 using namespace arma;
@@ -57,28 +57,23 @@ public:
 
 	Particle GetParticle() const;
 
-	double GetOneCollisionTime() const;
-
-	void SaveMatrix_x_vx(const size_t vy_position, const size_t vz_position, const size_t time_index) const;
-
-	void SaveMatrixes(const set<size_t>& xy_collection, const size_t z_position,
-			const size_t space_position, const size_t time_step_num) const;
-
 	void ChangeDFSliceValues(const cube& df_slice_val, size_t slice_index);
+
+	double GetOneCollisionTime() const;
 
 	void ChangeDFbyTransport(size_t slice_index, double time_step);
 
 	void RungeKutta2_ElasticCollisons(const mat& coll_mat, double time_step, size_t slice_index, bool Do_treatment);
 
+	void SaveMatrixes(const set<size_t>& xy_collection, const size_t z_position,
+			const size_t space_position, const string& file_name) const;
+
+	void SaveMatrix_x_vx(const size_t vy_position, const size_t vz_position, const string& file_name) const;
 	// ----Can be in private section----
 
 	cube Maxwell(double density, double temperature) const;
 
 	cube TestDistribution_1(double density, double temperature) const;
-
-	cube MaxwellReflectedHalf(double density, double temperature, bool Is_left_wall) const;
-
-	cube ConstTemperatureWallReflection(bool Is_left_wall) const;
 
 	cube WallPerfectReflection(bool Is_left_wall) const;
 

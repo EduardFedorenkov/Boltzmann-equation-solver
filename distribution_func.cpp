@@ -202,55 +202,6 @@ double DistributionFunction::GetOneCollisionTime() const{
 			);
 }
 
-void DistributionFunction::SaveMatrix_x_vx(const size_t vy_position, const size_t vz_position, const size_t time_index) const{
-	size_t x_size = space_grid.GetSize();
-	size_t v_size = velocity_grid.GetSize();
-	mat result(v_size, x_size);
-	for(size_t i = 0; i < x_size; ++i){
-		for(size_t m = 0; m < v_size; ++m){
-			result(m,i) = distribution_function(i)(m,vy_position,vz_position);
-		}
-	}
-	result.save("vx_x" + to_string(time_index) + ".txt", raw_ascii);
-}
-
-void DistributionFunction::SaveMatrixes(const set<size_t>& free_pos, const size_t fixed_pos,
-		const size_t space_position, const size_t time_step_num) const{
-	size_t v_size = velocity_grid.GetSize();
-	mat for_saving(v_size, v_size, fill::zeros);
-	string file_name = "";
-	for(size_t i = 0; i < v_size; ++i){
-		for(size_t j = 0; j < v_size; ++j){
-			if(free_pos.count(0) == 1 and free_pos.count(1) == 1){
-				for_saving(j,i) = distribution_function(space_position)(j,i,fixed_pos);
-				if(i == v_size - 1 and j == v_size - 1)
-					file_name = "DF(x = "
-					+ to_string(space_position) + ", vz = "
-					+ to_string(fixed_pos) + ", grid_num = "
-					+ ", t = "
-					+ to_string(time_step_num) + ").bin";
-			}else if(free_pos.count(1) == 1 and free_pos.count(2) == 1){
-				for_saving(j,i) = distribution_function(space_position)(fixed_pos,j,i);
-				if(i == v_size - 1 and j == v_size - 1)
-					file_name = "DF(x = "
-					+ to_string(space_position) + ", vx = "
-					+ to_string(fixed_pos) + ", grid_num = "
-					+ ", t = "
-					+ to_string(time_step_num) + ").bin";
-			}else if(free_pos.count(0) == 1 and free_pos.count(2) == 1){
-				for_saving(j,i) = distribution_function(space_position)(j,fixed_pos,i);
-				if(i == v_size - 1 and j == v_size - 1)
-					file_name = "DF(x = "
-					+ to_string(space_position) + ", vy = "
-					+ to_string(fixed_pos) + ", grid_num = "
-					+ ", t = "
-					+ to_string(time_step_num) + ").bin";
-			}
-		}
-	}
-	for_saving.save(file_name, raw_binary);
-}
-
 void DistributionFunction::ChangeDFbyTransport(size_t slice_index, double time_step){
 	distribution_function(slice_index) += ComputeFlax(slice_index) * time_step / space_grid.GetGridStep();
 }
@@ -260,6 +211,36 @@ void DistributionFunction::RungeKutta2_ElasticCollisons(const mat& coll_mat, dou
 	cube df_mid = distribution_function(slice_index) + time_step * first_coll_int;
 	cube second_coll_int = ComputeCollisionsIntegral(df_mid, coll_mat, velocity_grid, Do_treatment);
 	distribution_function(slice_index) += (second_coll_int + first_coll_int) * 0.5 * time_step ;
+}
+
+void DistributionFunction::SaveMatrixes(const set<size_t>& free_pos, const size_t fixed_pos,
+		const size_t space_position, const string& file_name) const{
+	size_t v_size = velocity_grid.GetSize();
+	mat for_saving(v_size, v_size, fill::zeros);
+	for(size_t i = 0; i < v_size; ++i){
+		for(size_t j = 0; j < v_size; ++j){
+			if(free_pos.count(0) == 1 and free_pos.count(1) == 1){
+				for_saving(j,i) = distribution_function(space_position)(j,i,fixed_pos);
+			}else if(free_pos.count(1) == 1 and free_pos.count(2) == 1){
+				for_saving(j,i) = distribution_function(space_position)(fixed_pos,j,i);
+			}else if(free_pos.count(0) == 1 and free_pos.count(2) == 1){
+				for_saving(j,i) = distribution_function(space_position)(j,fixed_pos,i);
+			}
+		}
+	}
+	for_saving.save(file_name, raw_binary);
+}
+
+void DistributionFunction::SaveMatrix_x_vx(const size_t vy_position, const size_t vz_position, const string& file_name) const{
+	size_t x_size = space_grid.GetSize();
+	size_t v_size = velocity_grid.GetSize();
+	mat result(v_size, x_size, fill::zeros);
+	for(size_t i = 0; i < x_size; ++i){
+		for(size_t m = 0; m < v_size; ++m){
+			result(m,i) = distribution_function(i)(m,vy_position,vz_position);
+		}
+	}
+	result.save(file_name, raw_binary);
 }
 
 cube DistributionFunction::Maxwell(double density, double temperature) const{
@@ -281,70 +262,30 @@ cube DistributionFunction::Maxwell(double density, double temperature) const{
 cube DistributionFunction::TestDistribution_1(double density, double temperature) const{
 	size_t v_size = velocity_grid.GetSize();
 	vector<double> vel_1D = velocity_grid.Get1DGrid();
-	cube distr(v_size, v_size, v_size);
+	cube maxwell(v_size, v_size, v_size);
 	double sqr_termal_vel = 2 * temperature / particle.mass * datum::c_0 * datum::c_0 * 1e4;
 	double factor = density / pow(sqrt(datum::pi * sqr_termal_vel), 3);
 	for(size_t k = 0; k < v_size; ++k){
 		for(size_t l = 0; l < v_size; ++l){
 			for(size_t m = 0; m < v_size; ++m){
-				distr(m,l,k) = factor * exp( -( Sqr(vel_1D[k]) + Sqr(vel_1D[l]) + Sqr(vel_1D[m]) ) / sqr_termal_vel ) *
+				maxwell(m,l,k) = factor * exp( -( Sqr(vel_1D[k]) + Sqr(vel_1D[l]) + Sqr(vel_1D[m]) ) / sqr_termal_vel ) *
 						Sqr(vel_1D[l]) / sqr_termal_vel;
-			}
-		}
-	}
-	return distr;
-}
-
-cube DistributionFunction::MaxwellReflectedHalf(double density, double temperature, bool Is_left_wall) const{
-	size_t v_size = velocity_grid.GetSize();
-	size_t mid_index = (v_size - 1) / 2;
-	vector<double> vel_1D = velocity_grid.Get1DGrid();
-	cube maxwell(v_size, v_size, v_size, fill::zeros);
-	double sqr_termal_vel = 2 * temperature / particle.mass * datum::c_0 * datum::c_0 * 1e4;
-	double factor = density / pow(sqrt(datum::pi * sqr_termal_vel), 3);
-	for(size_t k = 0; k < v_size; ++k){
-		for(size_t l = 0; l < v_size; ++l){
-			if(Is_left_wall){
-				for(size_t m = mid_index + 1; m < v_size; ++m){
-					maxwell(m,l,k) = factor * exp(- ( Sqr(vel_1D[k]) + Sqr(vel_1D[l]) + Sqr(vel_1D[m]) ) / sqr_termal_vel);
-				}
-			}else{
-				for(size_t m = 0; m < mid_index; ++m){
-					maxwell(m,l,k) = factor * exp(- ( Sqr(vel_1D[k]) + Sqr(vel_1D[l]) + Sqr(vel_1D[m]) ) / sqr_termal_vel);
-				}
 			}
 		}
 	}
 	return maxwell;
 }
 
-cube DistributionFunction::ConstTemperatureWallReflection(bool Is_left_wall) const{
-	size_t v_size = velocity_grid.GetSize();
-	cube wall_reflection(v_size, v_size, v_size);
-	if(Is_left_wall){
-		for(size_t k = 0; k < v_size; ++k){
-			wall_reflection = MaxwellReflectedHalf(ComputeFallingDensity(Is_left_wall), space_grid.GetWalls().walls_T.first, Is_left_wall);
-		}
-	}else{
-		for(size_t k = 0; k < v_size; ++k){
-			wall_reflection = MaxwellReflectedHalf(ComputeFallingDensity(Is_left_wall), space_grid.GetWalls().walls_T.second, Is_left_wall);
-		}
-	}
-	return wall_reflection;
-}
-
 cube DistributionFunction::WallPerfectReflection(bool Is_left_wall) const{
 	size_t v_size = velocity_grid.GetSize();
 	size_t mid_index = (v_size - 1) / 2;
-	cube wall_reflection(v_size, v_size, v_size);
-	if(Is_left_wall){
-		for(size_t k = 0; k < v_size; ++k){
+	cube wall_reflection(v_size, v_size, v_size, fill::zeros);
+	for(size_t k = 0; k < v_size; ++k){
+		if(Is_left_wall){
 			mat tmp = flipud(distribution_function(0).slice(k));
 			wall_reflection.slice(k).rows(mid_index + 1, v_size - 1) =
-				tmp.rows(mid_index + 1, v_size - 1);
-		}
-	}else{
-		for(size_t k = 0; k < v_size; ++k){
+					tmp.rows(mid_index + 1, v_size - 1);
+		}else{
 			mat tmp = flipud(distribution_function(distribution_function.n_elem - 1).slice(k));
 			wall_reflection.slice(k).rows(0, mid_index - 1) =
 					tmp.rows(0, mid_index - 1);
@@ -359,15 +300,12 @@ cube DistributionFunction::FluxbyThreePoints(const cube& df_left, const cube& df
 	vec vel_1D(velocity_grid.Get1DGrid());
 	cube flux(v_size,v_size,v_size);
 	for(size_t k = 0; k < v_size; ++k){
-		for(size_t l = 0; l < v_size; ++l){
-			for(size_t m = 0; m < v_size; ++m){
-				if(m < mid_index){
-					flux(m,l,k) = -vel_1D(m) * ( df_right(m,l,k) - df_mid(m,l,k));
-				}else if(m > mid_index){
-					flux(m,l,k) = vel_1D(m) * ( df_left(m,l,k) - df_mid(m,l,k));
-				}
-			}
-		}
+		flux.slice(k).rows(0, mid_index - 1) = vel_1D(span(0, mid_index - 1)) %
+				( df_right.slice(k).rows(0, mid_index - 1) -
+						df_mid.slice(k).rows(0, mid_index - 1) );
+		flux.slice(k).rows(mid_index +1, v_size - 1) = vel_1D(span(mid_index +1, v_size - 1)) %
+				( df_left.slice(k).rows(mid_index +1, v_size - 1) -
+						df_mid.slice(k).rows(mid_index +1, v_size - 1) );
 	}
 	return flux;
 }
@@ -377,7 +315,7 @@ cube DistributionFunction::ComputeFlax(size_t slice_index) const{
 	if(slice_index == 0ul){
 		cube df_left;
 		if(space_grid.GetWalls().walls_BC.first == BC_Type::ConstantTemperatureWall){
-			df_left = ConstTemperatureWallReflection(true);
+			df_left = Maxwell(ComputeFallingDensity(true), space_grid.GetWalls().walls_T.first);
 		}else if(space_grid.GetWalls().walls_BC.first == BC_Type::PerfectReflection){
 			df_left = WallPerfectReflection(true);
 		}
@@ -385,7 +323,7 @@ cube DistributionFunction::ComputeFlax(size_t slice_index) const{
 	}else if(slice_index == space_grid.GetSize() - 1){
 		cube df_right;
 		if(space_grid.GetWalls().walls_BC.second == BC_Type::ConstantTemperatureWall){
-			df_right = ConstTemperatureWallReflection(false);
+			df_right = Maxwell(ComputeFallingDensity(false), space_grid.GetWalls().walls_T.second);
 		}else if(space_grid.GetWalls().walls_BC.second == BC_Type::PerfectReflection){
 			df_right = WallPerfectReflection(false);
 		}
