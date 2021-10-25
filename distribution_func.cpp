@@ -234,10 +234,10 @@ void DistributionFunction::SaveMatrixes(const set<size_t>& free_pos, const size_
 void DistributionFunction::SaveMatrix_x_vx(const size_t vy_position, const size_t vz_position, const string& file_name) const{
 	size_t x_size = space_grid.GetSize();
 	size_t v_size = velocity_grid.GetSize();
-	mat result(v_size, x_size, fill::zeros);
-	for(size_t i = 0; i < x_size; ++i){
-		for(size_t m = 0; m < v_size; ++m){
-			result(m,i) = distribution_function(i)(m,vy_position,vz_position);
+	mat result(x_size, v_size, fill::zeros);
+	for(size_t m = 0; m < v_size; ++m){
+		for(size_t i = 0; i < x_size; ++i){
+			result(i,m) = distribution_function(i)(m,vy_position,vz_position);
 		}
 	}
 	result.save(file_name, raw_binary);
@@ -298,21 +298,24 @@ cube DistributionFunction::FluxbyThreePoints(const cube& df_left, const cube& df
 	size_t v_size = velocity_grid.GetSize();
 	size_t mid_index = (v_size - 1) / 2;
 	vec vel_1D(velocity_grid.Get1DGrid());
-	cube flux(v_size,v_size,v_size);
+	cube flux(v_size,v_size,v_size, fill::zeros);
 	for(size_t k = 0; k < v_size; ++k){
-		flux.slice(k).rows(0, mid_index - 1) = vel_1D(span(0, mid_index - 1)) %
-				( df_right.slice(k).rows(0, mid_index - 1) -
-						df_mid.slice(k).rows(0, mid_index - 1) );
-		flux.slice(k).rows(mid_index +1, v_size - 1) = vel_1D(span(mid_index +1, v_size - 1)) %
-				( df_left.slice(k).rows(mid_index +1, v_size - 1) -
-						df_mid.slice(k).rows(mid_index +1, v_size - 1) );
+		for(size_t l = 0; l < v_size; ++l){
+			for(size_t m = 0; m < v_size; ++m){
+				if(m < mid_index){
+					flux(m,l,k) = -vel_1D(m) * ( df_right(m,l,k) - df_mid(m,l,k));
+				}else if(m > mid_index){
+					flux(m,l,k) = vel_1D(m) * ( df_left(m,l,k) - df_mid(m,l,k));
+				}
+			}
+		}
 	}
 	return flux;
 }
 
 cube DistributionFunction::ComputeFlax(size_t slice_index) const{
 	cube flux;
-	if(slice_index == 0ul){
+	if(slice_index == 0){
 		cube df_left;
 		if(space_grid.GetWalls().walls_BC.first == BC_Type::ConstantTemperatureWall){
 			df_left = Maxwell(ComputeFallingDensity(true), space_grid.GetWalls().walls_T.first);
